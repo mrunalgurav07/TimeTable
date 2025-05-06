@@ -1,40 +1,51 @@
-import React, { useState } from 'react';
-import { Button, Space, Table, Input, Form, Row, Col, Typography, Popconfirm, message } from 'antd';
-import {
-  EditOutlined,
-  SaveOutlined,
-  CloseOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Button, Space, Table, Input, Form, Row, Col, Typography, Popconfirm, message, Card} from 'antd';
+import { EditOutlined, SaveOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons';
+import axios from 'axios';
 
 const { Title } = Typography;
-
-const initialData = [
-  { key: '1', no: '1', name: 'MCA-I' },
-  { key: '2', no: '2', name: 'MCA-II' },
-  { key: '3', no: '3', name: 'BCA-I' },
-  { key: '4', no: '4', name: 'BCA-II' },
-];
 
 const ViewClass = () => {
   const [filteredInfo, setFilteredInfo] = useState({});
   const [sortedInfo, setSortedInfo] = useState({});
   const [editingKey, setEditingKey] = useState('');
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState([]);
   const [editName, setEditName] = useState('');
   const [form] = Form.useForm();
 
+  // Fetch all classes from the database when the component mounts
+  useEffect(() => {
+    axios.get('http://localhost:5000/classes')
+      .then((response) => {
+        const fetchedData = response.data.data.map((item, index) => ({
+          ...item,
+          key: item._id, // Ensure each record has a unique key
+          no: index + 1,  // Dynamically assign Sr. No.
+        }));
+        setData(fetchedData);
+      })
+      .catch((err) => {
+        message.error('Failed to fetch classes');
+        console.error(err);
+      });
+  }, []);
+
   // Function to add new class
-  const addClass = (values) => {
-    const newKey = (data.length + 1).toString(); // Generate new key based on data length
-    const newData = {
-      key: newKey,
-      no: data.length + 1,
-      name: values.className,
-    };
-    setData([...data, newData]);
-    message.success('Class added successfully!');
-    form.resetFields(); // Reset form after submitting
+  const addClass = async (values) => {
+    try {
+      const response = await axios.post('http://localhost:5000/classes', { name: values.className });
+      const newData = {
+        key: response.data.data._id, // MongoDB ID for the key
+        no: data.length + 1,  // Dynamically assign Sr. No.
+        name: response.data.data.name,
+      };
+      setData((prevData) => [...prevData, newData]);
+      message.success('Class added successfully!');
+      form.resetFields(); // Reset form after submitting
+    } catch (err) {
+      message.error('Failed to add class');
+      console.error(err);
+    }
   };
 
   const isEditing = (record) => record.key === editingKey;
@@ -49,22 +60,36 @@ const ViewClass = () => {
     setEditName('');
   };
 
-  const save = (key) => {
-    const newData = [...data];
-    const index = newData.findIndex((item) => key === item.key);
-    if (index > -1) {
-      const item = newData[index];
-      newData.splice(index, 1, { ...item, name: editName });
-      setData(newData);
-      setEditingKey('');
-      message.success('Class updated successfully');
+  const save = async (key) => {
+    try {
+      const newData = [...data];
+      const index = newData.findIndex((item) => key === item.key);
+      if (index > -1) {
+        const item = newData[index];
+        newData.splice(index, 1, { ...item, name: editName });
+        setData(newData);
+        setEditingKey('');
+        
+        // Update in the database
+        await axios.put(`http://localhost:5000/classes/${key}`, { name: editName });
+        message.success('Class updated successfully');
+      }
+    } catch (err) {
+      message.error('Failed to update class');
+      console.error(err);
     }
   };
 
-  const handleDelete = (key) => {
-    const newData = data.filter((item) => item.key !== key);
-    setData(newData);
-    message.success('Class deleted successfully');
+  const handleDelete = async (key) => {
+    try {
+      await axios.delete(`http://localhost:5000/classes/${key}`);
+      const newData = data.filter((item) => item.key !== key);
+      setData(newData);
+      message.success('Class deleted successfully');
+    } catch (err) {
+      message.error('Failed to delete class');
+      console.error(err);
+    }
   };
 
   const handleChange = (pagination, filters, sorter) => {
@@ -94,12 +119,6 @@ const ViewClass = () => {
       title: 'Class Name',
       dataIndex: 'name',
       key: 'name',
-      filters: [
-        { text: 'MCA', value: 'MCA' },
-        { text: 'BCA', value: 'BCA' },
-      ],
-      filteredValue: filteredInfo.name || null,
-      onFilter: (value, record) => record.name.includes(value),
       sorter: (a, b) => a.name.length - b.name.length,
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
       ellipsis: true,
@@ -128,11 +147,7 @@ const ViewClass = () => {
               icon={<SaveOutlined />}
               onClick={() => save(record.key)}
             />
-            <Button
-              size="small"
-              icon={<CloseOutlined />}
-              onClick={cancel}
-            />
+            <Button size="small" icon={<CloseOutlined />} onClick={cancel} />
           </Space>
         ) : (
           <Space>
@@ -164,17 +179,15 @@ const ViewClass = () => {
 
   return (
     <>
-      {/* Add Class Form */}
-      <div style={{ padding: '20px', marginBottom: '20px' }}>
-        <Title level={4}>Add Class</Title>
+     <div style={{ padding: '20px'}}>
+      <Card title={<Title level={4}>Add Class</Title>} style={{ marginBottom: '20px' }}>
         <Form form={form} layout="vertical" onFinish={addClass}>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="Class Name"
                 name="className"
-                rules={[{ required: true, message: 'Please enter class!' }]}
-              >
+                rules={[{ required: true, message: 'Please enter class!' }]}>
                 <Input placeholder="Enter Class Name" />
               </Form.Item>
             </Col>
@@ -185,21 +198,22 @@ const ViewClass = () => {
             </Button>
           </Form.Item>
         </Form>
-      </div>
+      </Card>
 
-      {/* Table Actions */}
-      <Space style={{ marginBottom: 16 }}>
-        <Button onClick={setNoSort}>Sort number</Button>
-        <Button onClick={clearFilters}>Clear filters</Button>
-        <Button onClick={clearAll}>Clear filters and sorters</Button>
-      </Space>
+      <Card title={<Title level={4}>View Class</Title>} style={{ marginBottom: '20px' }}>
+        <Space style={{ marginBottom: 16 }}>
+          <Button onClick={setNoSort}>Sort number</Button>
+          <Button onClick={clearFilters}>Clear filters</Button>
+          <Button onClick={clearAll}>Clear filters and sorters</Button>
+        </Space>
 
-      {/* Class Table */}
-      <Table
-        columns={columns}
-        dataSource={data}
-        onChange={handleChange}
-      />
+        <Table
+          columns={columns}
+          dataSource={data}
+          onChange={handleChange}
+        />
+      </Card>
+     </div>
     </>
   );
 };
