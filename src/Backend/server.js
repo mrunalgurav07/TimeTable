@@ -260,3 +260,80 @@ mongoose
   .catch((err) => {
     console.error("❌ Failed to connect to MongoDB:", err);
   });
+
+
+// ----------------------------------------------------------
+
+// First, let's add a model for timetable entries in server.js
+
+// Timetable Entry schema
+const timetableEntrySchema = mongoose.Schema(
+  {
+    day: { type: String, required: true },
+    class: { type: String, required: true },
+    time: { type: String, required: true },
+    subject: { type: String, required: true },
+    room: { type: String, required: true },
+    teacher: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'teacher',
+      required: false
+    }
+  },
+  { timestamps: true }
+);
+
+const TimetableEntryModel = mongoose.model("timetableEntry", timetableEntrySchema);
+
+// Create routes for timetable entries
+app.post("/timetable-entries", async (req, res) => {
+  try {
+    const data = new TimetableEntryModel(req.body);
+    await data.save();
+    res.json({ success: true, message: "Timetable entry created successfully", data });
+  } catch (err) {
+    console.error("Error creating timetable entry:", err);
+    res.status(500).json({ success: false, message: "Failed to create timetable entry" });
+  }
+});
+
+app.get("/timetable-entries", async (req, res) => {
+  try {
+    // Support filtering by day and class
+    const filter = {};
+    if (req.query.day) filter.day = req.query.day;
+    if (req.query.class) filter.class = req.query.class;
+    
+    const entries = await TimetableEntryModel.find(filter);
+    res.json({ success: true, data: entries });
+  } catch (err) {
+    console.error("Error fetching timetable entries:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch timetable entries" });
+  }
+});
+
+app.put("/timetable-entries/:id", async (req, res) => {
+  try {
+    const updated = await TimetableEntryModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Timetable entry not found" });
+    }
+    res.json({ success: true, message: "Timetable entry updated successfully", data: updated });
+  } catch (err) {
+    console.error("Error updating timetable entry:", err);
+    res.status(500).json({ success: false, message: "Failed to update timetable entry" });
+  }
+});
+
+app.delete("/timetable-entries/:id", async (req, res) => {
+  try {
+    const deleted = await TimetableEntryModel.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Timetable entry not found" });
+    }
+    res.json({ success: true, message: "Timetable entry deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting timetable entry:", err);
+    res.status(500).json({ success: false, message: "Failed to delete timetable entry" });
+  }
+});
