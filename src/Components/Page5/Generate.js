@@ -721,6 +721,7 @@ const Generate = () => {
             
             <div className="flex space-x-1">
               {/* Export buttons */}
+              
               <button 
                 onClick={exportToPDF}
                 disabled={exporting}
