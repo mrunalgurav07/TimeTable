@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { saveAs } from 'file-saver';
 
 // Simple Icon Components
 const PencilIcon = () => (
@@ -19,6 +22,24 @@ const PlusIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="5" x2="12" y2="19"></line>
     <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" y1="15" x2="12" y2="3"></line>
+  </svg>
+);
+
+const TableIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="3" y1="9" x2="21" y2="9"></line>
+    <line x1="3" y1="15" x2="21" y2="15"></line>
+    <line x1="9" y1="3" x2="9" y2="21"></line>
+    <line x1="15" y1="3" x2="15" y2="21"></line>
   </svg>
 );
 
@@ -50,6 +71,10 @@ const Generate = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentEntryId, setCurrentEntryId] = useState(null);
+  
+  // State for export functionality
+  const [exporting, setExporting] = useState(false);
+  const timetableRef = useRef(null);
 
   // Time slots
   const timeSlots = [
@@ -71,6 +96,7 @@ const Generate = () => {
   const [activeView, setActiveView] = useState('day');
   const [activeDay, setActiveDay] = useState('Monday');
   const [activeClass, setActiveClass] = useState('All');
+  const [showAllDays, setShowAllDays] = useState(false);
 
   // Fetch timetable data from the server
   useEffect(() => {
@@ -210,10 +236,126 @@ const Generate = () => {
 
   // Filter data based on active view
   const filteredData = activeView === 'day' 
-    ? timetableData.filter(item => item.day === activeDay)
+    ? (showAllDays 
+        ? timetableData 
+        : timetableData.filter(item => item.day === activeDay))
     : activeClass === 'All' 
       ? timetableData 
       : timetableData.filter(item => item.class === activeClass);
+
+  // Toggle All Days view
+  const toggleAllDays = () => {
+    setShowAllDays(!showAllDays);
+  };
+
+  // Export functions for PDF and CSV
+  const exportToPDF = async () => {
+    if (!timetableRef.current) return;
+    
+    try {
+      setExporting(true);
+      
+      const element = timetableRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Determine PDF orientation and size
+      const orientation = 
+        activeView === 'day' ? 'landscape' : 'portrait';
+      const pdf = new jsPDF(orientation, 'mm', 'a4');
+      
+      const imgWidth = orientation === 'landscape' ? 277 : 190;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+      
+      // Generate filename based on current view
+      let filename;
+      if (activeView === 'day') {
+        filename = showAllDays ? 'timetable-all-days.pdf' : `timetable-${activeDay}.pdf`;
+      } else {
+        filename = activeClass === 'All' 
+          ? 'complete-timetable.pdf' 
+          : `timetable-${activeClass}.pdf`;
+      }
+          
+      pdf.save(filename);
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
+      alert('Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportToCSV = async () => {
+    try {
+      setExporting(true);
+      
+      let dataToExport = [];
+      let csvContent = '';
+      let filename = '';
+      
+      // Format data based on current view
+      if (activeView === 'day' && !showAllDays) {
+        // Header row for day view
+        csvContent = 'Time,Class,Subject,Room\r\n';
+        
+        // Generate data for day view - each row is a time slot
+        timeSlots.forEach(time => {
+          classes.forEach(cls => {
+            const entry = timetableData.find(item => 
+              item.day === activeDay && 
+              item.class === cls && 
+              item.time === time
+            );
+            
+            if (entry) {
+              // Format: Time,Class,Subject,Room
+              csvContent += `"${time}","${cls}","${entry.subject}","${entry.room}"\r\n`;
+            } else {
+              // Empty slot
+              csvContent += `"${time}","${cls}","",""\r\n`;
+            }
+          });
+        });
+        
+        filename = `timetable-${activeDay}.csv`;
+      } else {
+        // All days or Class view - either filtered by class or showing all
+        // Header row for class view
+        csvContent = 'Day,Class,Time,Subject,Room\r\n';
+        
+        // Add data rows
+        filteredData.forEach(item => {
+          // Format: Day,Class,Time,Subject,Room
+          csvContent += `"${item.day}","${item.class}","${item.time}","${item.subject}","${item.room}"\r\n`;
+        });
+        
+        if (activeView === 'day') {
+          filename = 'timetable-all-days.csv';
+        } else {
+          filename = activeClass === 'All' ? 'complete-timetable.csv' : `timetable-${activeClass}.csv`;
+        }
+      }
+      
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+      saveAs(blob, filename);
+      
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      alert('Failed to export CSV');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Function to render the entry form modal
   const renderModal = () => {
@@ -313,6 +455,60 @@ const Generate = () => {
 
   // Function to render the day-wise view
   const renderDayView = () => {
+    // If showing all days view, switch to a different table format
+    if (showAllDays) {
+      return (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2">Day</th>
+              <th className="border p-2">Class</th>
+              <th className="border p-2">Time</th>
+              <th className="border p-2">Subject</th>
+              <th className="border p-2">Room</th>
+              <th className="border p-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredData.length > 0 ? (
+              filteredData.map(item => (
+                <tr key={item._id} className={getBackgroundColor(item.class)}>
+                  <td className="border p-2">{item.day}</td>
+                  <td className="border p-2">{item.class}</td>
+                  <td className="border p-2">{item.time}</td>
+                  <td className="border p-2">{item.subject}</td>
+                  <td className="border p-2">{item.room}</td>
+                  <td className="border p-2">
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => handleEdit(item._id)}
+                        className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(item._id)}
+                        className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="text-center py-4 border">
+                  No entries found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      );
+    }
+    
+    // Single day view
     return (
       <table className="w-full border-collapse">
         <thead>
@@ -464,7 +660,10 @@ const Generate = () => {
               <div className="flex mb-2">
                 <button 
                   className={`flex-1 p-2 ${activeView === 'day' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                  onClick={() => setActiveView('day')}
+                  onClick={() => {
+                    setActiveView('day');
+                    setShowAllDays(false);
+                  }}
                 >
                   Day View
                 </button>
@@ -478,11 +677,20 @@ const Generate = () => {
               
               {activeView === 'day' && (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
+                  <button 
+                    className={`p-2 ${showAllDays ? 'bg-purple-500 text-white' : 'bg-gray-200'}`}
+                    onClick={toggleAllDays}
+                  >
+                    All Days
+                  </button>
                   {days.map(day => (
                     <button 
                       key={day}
-                      className={`p-2 ${activeDay === day ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
-                      onClick={() => setActiveDay(day)}
+                      className={`p-2 ${activeDay === day && !showAllDays ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+                      onClick={() => {
+                        setActiveDay(day);
+                        setShowAllDays(false);
+                      }}
                     >
                       {day}
                     </button>
@@ -511,18 +719,44 @@ const Generate = () => {
               )}
             </div>
             
-            <button 
-              className="p-2 bg-green-500 text-white rounded flex items-center"
-              onClick={() => {
-                resetForm();
-                setShowModal(true);
-              }}
-            >
-              <PlusIcon /> <span className="ml-1">Add New Entry</span>
-            </button>
+            <div className="flex space-x-1">
+              {/* Export buttons */}
+              <button 
+                onClick={exportToPDF}
+                disabled={exporting}
+                className="px-1 size-14 bg-red-600 text-white rounded hover:bg-red-700 flex items-center"
+              >
+                {exporting ? <LoadingSpinner /> : (
+                  <>
+                    <DownloadIcon /> <span className="ml-1">PDF</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={exportToCSV}
+                disabled={exporting}
+                className="px-1 size-14 bg-blue-500 text-white rounded hover:bg-green-700 flex items-center"
+              >
+                {exporting ? <LoadingSpinner /> : (
+                  <>
+                    <TableIcon /> <span className="ml-1">CSV</span>
+                  </>
+                )}
+              </button>
+              <button 
+                className="px-1 size-14 bg-gray-600 text-white rounded flex items-center hover:bg-green-600"
+                onClick={() => {
+                  resetForm();
+                  setShowModal(true);
+                }}
+              >
+                <PlusIcon /> <span className="ml-1">Add</span>
+              </button>
+            </div>
           </div>
           
-          <div className="border rounded shadow">
+          {/* Reference for export */}
+          <div className="border rounded shadow" ref={timetableRef}>
             {activeView === 'day' ? renderDayView() : renderClassView()}
           </div>
           
