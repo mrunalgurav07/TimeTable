@@ -736,7 +736,7 @@ const Generate = () => {
               <button 
                 onClick={exportToCSV}
                 disabled={exporting}
-                className="px-1 size-14 bg-blue-500 text-white rounded hover:bg-green-700 flex items-center"
+                className="px-1 size-14 bg-blue-500 text-white rounded hover:bg-blue-700 flex items-center"
               >
                 {exporting ? <LoadingSpinner /> : (
                   <>
@@ -745,7 +745,7 @@ const Generate = () => {
                 )}
               </button>
               <button 
-                className="px-1 size-14 bg-gray-600 text-white rounded flex items-center hover:bg-green-600"
+                className="px-1 size-14 bg-amber-500 text-white rounded flex items-center hover:bg-amber-600"
                 onClick={() => {
                   resetForm();
                   setShowModal(true);

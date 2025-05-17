@@ -25,7 +25,7 @@ const ViewClass = () => {
         setData(fetchedData);
       })
       .catch((err) => {
-        message.error('Failed to fetch classes');
+        message.error('Failed to fetch Department');
         console.error(err);
       });
   }, []);
@@ -40,10 +40,10 @@ const ViewClass = () => {
         name: response.data.data.name,
       };
       setData((prevData) => [...prevData, newData]);
-      message.success('Class added successfully!');
+      message.success('Department added successfully!');
       form.resetFields(); // Reset form after submitting
     } catch (err) {
-      message.error('Failed to add class');
+      message.error('Failed to add department');
       console.error(err);
     }
   };
@@ -72,10 +72,10 @@ const ViewClass = () => {
         
         // Update in the database
         await axios.put(`http://localhost:5000/classes/${key}`, { name: editName });
-        message.success('Class updated successfully');
+        message.success('Department updated successfully');
       }
     } catch (err) {
-      message.error('Failed to update class');
+      message.error('Failed to update department');
       console.error(err);
     }
   };
@@ -85,9 +85,9 @@ const ViewClass = () => {
       await axios.delete(`http://localhost:5000/classes/${key}`);
       const newData = data.filter((item) => item.key !== key);
       setData(newData);
-      message.success('Class deleted successfully');
+      message.success('Department deleted successfully');
     } catch (err) {
-      message.error('Failed to delete class');
+      message.error('Failed to delete department');
       console.error(err);
     }
   };
@@ -116,7 +116,7 @@ const ViewClass = () => {
       ellipsis: true,
     },
     {
-      title: 'Class Name',
+      title: 'Department Name',
       dataIndex: 'name',
       key: 'name',
       sorter: (a, b) => a.name.length - b.name.length,
@@ -180,27 +180,27 @@ const ViewClass = () => {
   return (
     <>
      <div style={{ padding: '20px'}}>
-      <Card title={<Title level={4}>Add Class</Title>} style={{ marginBottom: '20px' }}>
+      <Card title={<Title level={4}>Add Department</Title>} style={{ marginBottom: '20px' }}>
         <Form form={form} layout="vertical" onFinish={addClass}>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                label="Class Name"
+                label="Department Name"
                 name="className"
-                rules={[{ required: true, message: 'Please enter class!' }]}>
-                <Input placeholder="Enter Class Name" />
+                rules={[{ required: true, message: 'Please enter department!' }]}>
+                <Input placeholder="Enter Department Name" />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item>
             <Button type="primary" htmlType="submit">
-              Add Class
+              Add Department
             </Button>
           </Form.Item>
         </Form>
       </Card>
 
-      <Card title={<Title level={4}>View Class</Title>} style={{ marginBottom: '20px' }}>
+      <Card title={<Title level={4}>View Department</Title>} style={{ marginBottom: '20px' }}>
         <Space style={{ marginBottom: 16 }}>
           <Button onClick={setNoSort}>Sort number</Button>
           <Button onClick={clearFilters}>Clear filters</Button>

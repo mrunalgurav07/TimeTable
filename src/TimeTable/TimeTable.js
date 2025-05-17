@@ -34,7 +34,7 @@ const items = [
   getItem('Teacher', 'teacher', <UserOutlined />),
   getItem('Lecture', 'lecture', <DesktopOutlined />),
   getItem('Subject', 'subject', <PieChartOutlined />),
-  getItem('Class', 'class', <TeamOutlined />),
+  getItem('Department', 'department', <TeamOutlined />),
   getItem('Time Table', 'timetable', <FileOutlined />),
   getItem('Logout', 'logout', <LogoutOutlined />),
 ];
@@ -56,7 +56,7 @@ const TimeTable = () => {
         return <Lecture />;
       case 'subject':
         return <ViewSub />;
-      case 'class':
+      case 'department':
         return <ViewClass />;
       case 'timetable':
         return <Generate/>;

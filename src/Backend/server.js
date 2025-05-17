@@ -16,16 +16,18 @@ app.use(express.json()); // Enables parsing JSON bodies
 // ---------- SCHEMAS ----------
 
 // Lecture schema
-const lectureSchema = mongoose.Schema(
-  {
-    lectureNumber: { type: Number, required: true },
-    duration: { type: String, required: true }, // format "HH:mm"
-    fromTime: { type: String, required: true }, // format "HH:mm"
-    toTime: { type: String, required: true },   // format "HH:mm"
-  },
-  { timestamps: true }
-);
-const LectureModel = mongoose.model("lecture", lectureSchema);
+// const lectureSchema = mongoose.Schema(
+//   {
+//     day: { type: String, required: true },
+//     name: { type: String, required: true },
+//     lectureNumber: { type: Number, required: true },
+//     duration: { type: String, required: true },
+//     fromTime: { type: String, required: true },
+//     toTime: { type: String, required: true },
+//   },
+//   { timestamps: true }
+// );
+// const LectureModel = mongoose.model("lectures", lectureSchema);
 
 // Subject schema
 const subjectSchema = mongoose.Schema(
@@ -48,25 +50,202 @@ const ClassModel = mongoose.model("class", classSchema);
 
 // ---------- ROUTES ----------
 
-// Lecture routes
-app.post("/lecture/create", async (req, res) => {
+// ---------------------- LECTURE ROUTES ----------------------
+
+/**
+ * Lecture schema definition
+ * Defines the structure for lecture documents in MongoDB
+ */
+// const lectureSchema = mongoose.Schema(
+//   {
+//     day: { type: String, required: true },
+//     name: { type: String, required: true },
+//     lectureNumber: { type: Number, required: true },
+//     duration: { type: String, required: true }, // format "HH:mm"
+//     fromTime: { type: String, required: true },
+//     toTime: { type: String, required: true },
+//   },
+//   { timestamps: true }
+// );
+// const LectureModel = mongoose.model("lectures", lectureSchema);
+
+// ---------------------- LECTURE ROUTES ----------------------
+
+/**
+ * Lecture schema definition
+ * Defines the structure for lecture documents in MongoDB
+ */
+const lectureSchema = mongoose.Schema(
+  {
+    day: { type: String, required: true },
+    name: { type: String, required: true },
+    lectureNumber: { type: Number, required: true },
+    fromTime: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+const LectureModel = mongoose.model("lectures", lectureSchema);
+
+/**
+ * Create new lecture
+ * POST /lectures/create
+ * Creates a new lecture entry in the database
+ */
+app.post("/lectures/create", async (req, res) => {
   try {
-    const data = new LectureModel(req.body);
+    // Extract lecture data from request body
+    const { day, name, lectureNumber, fromTime} = req.body;
+    
+    // Validate required fields
+    if (!day || !name || !lectureNumber || !fromTime ) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "All fields are required (day, name, lectureNumber, duration, fromTime, toTime)" 
+      });
+    }
+    
+    // Create new lecture instance
+    const data = new LectureModel({
+      day,
+      name,
+      lectureNumber,
+      fromTime
+    });
+    
+    // Save to database
     await data.save();
-    res.json({ success: true, message: "Lecture created successfully", data });
+    
+    // Return success response
+    res.json({ 
+      success: true, 
+      message: "Lecture created successfully", 
+      data 
+    });
   } catch (err) {
     console.error("Error creating lecture:", err);
-    res.status(500).json({ success: false, message: "Failed to create lecture" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to create lecture" 
+    });
   }
 });
 
-app.get("/lecture", async (req, res) => {
+/**
+ * Get all lectures
+ * GET /lectures
+ * Retrieves all lectures from the database
+ */
+app.get("/lectures", async (req, res) => {
   try {
-    const lectures = await LectureModel.find();
-    res.json({ success: true, data: lectures });
+    // Fetch all lectures with selected fields
+    const lectures = await LectureModel.find().select('day name lectureNumber fromTime ');
+    
+    // Return success response with lecture data
+    res.json({ 
+      success: true, 
+      data: lectures 
+    });
   } catch (err) {
     console.error("Error fetching lectures:", err);
-    res.status(500).json({ success: false, message: "Failed to fetch lectures" });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch lectures" 
+    });
+  }
+});
+
+/**
+ * Update lecture
+ * PUT /lectures/:id
+ * Updates an existing lecture by ID
+ */
+app.put("/lectures/:id", async (req, res) => {
+  try {
+    // Extract fields from request body
+    const { day, name, lectureNumber, fromTime } = req.body;
+    
+    // Create update object with only provided fields
+    const updateData = {};
+    if (day) updateData.day = day;
+    if (name) updateData.name = name;
+    if (lectureNumber) updateData.lectureNumber = lectureNumber;
+    if (fromTime) updateData.fromTime = fromTime;
+    
+    // Update lecture in database
+    const updatedLecture = await LectureModel.findByIdAndUpdate(
+      req.params.id, 
+      updateData, 
+      { new: true } // Return updated document
+    );
+    
+    // Check if lecture exists
+    if (!updatedLecture) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Lecture not found" 
+      });
+    }
+    
+    // Return success response with updated lecture data
+    res.json({ 
+      success: true, 
+      message: "Lecture updated successfully", 
+      data: updatedLecture 
+    });
+  } catch (err) {
+    console.error("Error updating lecture:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to update lecture" 
+    });
+  }
+});
+
+/**
+ * Delete lecture
+ * DELETE /lectures/:id
+ * Deletes a lecture by ID
+ */
+app.delete("/lectures/:id", async (req, res) => {
+  try {
+    console.log("Received delete request for lecture ID:", req.params.id);
+    
+    // Validate the ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.log("Invalid ID format:", req.params.id);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid lecture ID format"
+      });
+    }
+    
+    // Delete lecture from database
+    const deleted = await LectureModel.findByIdAndDelete(req.params.id);
+    
+    // Check if lecture exists
+    if (!deleted) {
+      console.log("Lecture not found with ID:", req.params.id);
+      return res.status(404).json({ 
+        success: false, 
+        message: "Lecture not found" 
+      });
+    }
+    
+    console.log("Successfully deleted lecture:", deleted);
+    
+    // Return success response
+    res.json({ 
+      success: true, 
+      message: "Lecture deleted successfully",
+      deletedId: req.params.id,
+      deletedLecture: deleted
+    });
+  } catch (err) {
+    console.error("Error deleting lecture:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: `Failed to delete lecture: ${err.message}` 
+    });
   }
 });
 

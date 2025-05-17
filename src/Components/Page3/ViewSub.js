@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Space, Table, Input, Form, Row, Col, Typography, Popconfirm, message,Card } from 'antd';
+import {
+  Button, Space, Table, Input, Form, Row, Col,
+  Typography, Popconfirm, message, Card
+} from 'antd';
 import { EditOutlined, SaveOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -13,38 +16,39 @@ const ViewSub = () => {
   const [editName, setEditName] = useState('');
   const [editCode, setEditCode] = useState('');
   const [form] = Form.useForm();
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 5 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
 
-  // Fetch all subjects from the database when the component mounts
   useEffect(() => {
-    axios.get('http://localhost:5000/subjects')
-      .then((response) => {
-        const fetchedData = response.data.data.map((item, index) => ({
-          ...item,
-          key: item._id, // Ensure each record has a unique key
-          no: index + 1,  // Dynamically assign Sr. No.
-        }));
-        setData(fetchedData);
-      })
-      .catch((err) => {
-        message.error('Failed to fetch subjects');
-        console.error(err);
-      });
+    fetchSubjects();
   }, []);
 
-  // Function to add new subject
+  const fetchSubjects = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/subjects');
+      const fetchedData = response.data.data.map((item, index) => ({
+        ...item,
+        key: item._id,
+        no: index + 1,
+      }));
+      setData(fetchedData);
+    } catch (err) {
+      message.error('Failed to fetch subjects');
+      console.error(err);
+    }
+  };
+
   const addSubject = async (values) => {
     try {
       const response = await axios.post('http://localhost:5000/subjects', values);
       const newData = {
-        key: response.data.data._id, // MongoDB ID for the key
-        no: data.length + 1,  // Dynamically assign Sr. No.
+        key: response.data.data._id,
+        no: data.length + 1,
         name: response.data.data.name,
         code: response.data.data.code,
       };
-      setData((prevData) => [...prevData, newData]);
+      setData([...data, newData]);
       message.success('Subject added successfully!');
-      form.resetFields(); // Reset form after submitting
+      form.resetFields();
     } catch (err) {
       message.error('Failed to add subject');
       console.error(err);
@@ -61,22 +65,24 @@ const ViewSub = () => {
 
   const cancel = () => {
     setEditingKey('');
-    setEditName('');
-    setEditCode('');
   };
 
   const save = async (key) => {
     try {
-      const newData = [...data];
-      const index = newData.findIndex((item) => key === item.key);
+      const updated = [...data];
+      const index = updated.findIndex((item) => key === item.key);
       if (index > -1) {
-        const item = newData[index];
-        newData.splice(index, 1, { ...item, name: editName, code: editCode });
-        setData(newData);
+        const item = updated[index];
+        const updatedItem = { ...item, name: editName, code: editCode };
+        updated.splice(index, 1, updatedItem);
+        setData(updated);
         setEditingKey('');
-        
-        // Update in the database
-        await axios.put(`http://localhost:5000/subjects/${key}`, { name: editName, code: editCode });
+
+        await axios.put(`http://localhost:5000/subjects/${key}`, {
+          name: editName,
+          code: editCode,
+        });
+
         message.success('Subject updated successfully');
       }
     } catch (err) {
@@ -108,38 +114,53 @@ const ViewSub = () => {
     setFilteredInfo({});
     setSortedInfo({});
   };
-
-  const setCodeSort = () => {
-    setSortedInfo({ order: 'descend', columnKey: 'code' });
-  };
+  const setCodeSort = () => setSortedInfo({ order: 'descend', columnKey: 'code' });
 
   const columns = [
     {
-      title: 'Sr. no.',
+      title: 'Sr. No.',
       dataIndex: 'no',
       key: 'no',
       sorter: (a, b) => a.no - b.no,
       sortOrder: sortedInfo.columnKey === 'no' ? sortedInfo.order : null,
       ellipsis: true,
-      render: (text, record, index) => {
-        const currentIndex = (pagination.current - 1) * pagination.pageSize + index + 1;
-        return currentIndex;
-      },
     },
     {
-      title: 'Subject Code',
+      title: 'Subject Class & Code',
       dataIndex: 'code',
       key: 'code',
-      sorter: (a, b) => a.code - b.code,
+      sorter: (a, b) => a.code.localeCompare(b.code),
       sortOrder: sortedInfo.columnKey === 'code' ? sortedInfo.order : null,
       ellipsis: true,
+      filters: [
+        {
+          text: 'MCA',
+          value: 'MCA',
+          children: [
+            { text: 'MCA-I', value: 'MCA-I' },
+            { text: 'MCA-II', value: 'MCA-II' },
+          ],
+        },
+        {
+          text: 'BCA',
+          value: 'BCA',
+          children: [
+            { text: 'BCA-I', value: 'BCA-I' },
+            { text: 'BCA-II', value: 'BCA-II' },
+          ],
+        },
+      ],
+      filterMode: 'tree',
+      filterSearch: true,
+      onFilter: (value, record) =>
+        (record.code?.split(' ')[0] || '').toUpperCase() === value.toUpperCase(),
       render: (text, record) =>
         isEditing(record) ? (
           <Input
-            size="small"
             value={editCode}
             onChange={(e) => setEditCode(e.target.value)}
-            style={{ width: 100 }}
+            size="small"
+            style={{ width: 140 }}
           />
         ) : (
           text
@@ -149,16 +170,16 @@ const ViewSub = () => {
       title: 'Subject Name',
       dataIndex: 'name',
       key: 'name',
-      sorter: (a, b) => a.name.length - b.name.length,
+      sorter: (a, b) => a.name.localeCompare(b.name),
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
       ellipsis: true,
       render: (text, record) =>
         isEditing(record) ? (
           <Input
-            size="small"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
-            style={{ width: 120 }}
+            size="small"
+            style={{ width: 140 }}
           />
         ) : (
           text
@@ -172,8 +193,8 @@ const ViewSub = () => {
         return editable ? (
           <Space>
             <Button
-              size="small"
               type="primary"
+              size="small"
               icon={<SaveOutlined />}
               onClick={() => save(record.key)}
             />
@@ -182,69 +203,62 @@ const ViewSub = () => {
         ) : (
           <Space>
             <Button
-              size="small"
-              type="default"
               icon={<EditOutlined />}
-              disabled={editingKey !== ''}
+              size="small"
               onClick={() => edit(record)}
+              disabled={editingKey !== ''}
             />
             <Popconfirm
-              title="Are you sure to delete?"
+              title="Are you sure to delete this subject?"
               onConfirm={() => handleDelete(record.key)}
               okText="Yes"
               cancelText="No"
             >
-              <Button
-                size="small"
-                type="primary"
-                danger
-                icon={<DeleteOutlined />}
-              />
+              <Button icon={<DeleteOutlined />} danger size="small" />
             </Popconfirm>
           </Space>
         );
       },
     },
   ];
+  
 
   return (
-    <>
-     <div style={{ padding: '20px' }}>
+    <div style={{ padding: '20px' }}>
       <Card title={<Title level={4}>Add Subject</Title>} style={{ marginBottom: '20px' }}>
-          <Form form={form} layout="vertical" onFinish={addSubject}>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="Subject Name"
-                  name="name"
-                  rules={[{ required: true, message: 'Please enter subject!' }]}>
-                  <Input placeholder="Enter Subject Name" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="Subject Code"
-                  name="code"
-                  rules={[{ required: true, message: 'Please enter subject code!' }]}>
-                  <Input placeholder="Enter Subject Code" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item>
-              <Button type="primary" htmlType="submit">
-                Add Subject
-              </Button>
-            </Form.Item>
-          </Form>
+        <Form form={form} layout="vertical" onFinish={addSubject}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Subject & Teacher Name"
+                name="name"
+                rules={[{ required: true, message: 'Please enter subject & teacher!' }]}
+              >
+                <Input placeholder="e.g., Java (SSG)" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Subject Class & Code"
+                name="code"
+                rules={[{ required: true, message: 'Please enter class & code!' }]}
+              >
+                <Input placeholder="e.g., MCA-I JAVA101" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item>
+            <Button type="primary" htmlType="submit">Add Subject</Button>
+          </Form.Item>
+        </Form>
       </Card>
 
-      <Card title={<Title level={4}>View Subject</Title>} style={{ marginBottom: '20px' }}>
+      <Card title={<Title level={4}>View Subjects</Title>}>
         <Space style={{ marginBottom: 16 }}>
-          <Button onClick={setCodeSort}>Sort code</Button>
-          <Button onClick={clearFilters}>Clear filters</Button>
-          <Button onClick={clearAll}>Clear filters and sorters</Button>
+          <Button onClick={setCodeSort}>Sort by Code</Button>
+          <Button onClick={clearFilters}>Clear Filters</Button>
+          <Button onClick={clearAll}>Reset All</Button>
         </Space>
-
         <Table
           columns={columns}
           dataSource={data}
@@ -252,9 +266,8 @@ const ViewSub = () => {
           pagination={pagination}
           rowKey="key"
         />
-        </Card>
-      </div>
-    </>
+      </Card>
+    </div>
   );
 };
 

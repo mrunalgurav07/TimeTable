@@ -54,20 +54,20 @@ const Teacher = () => {
     </Form.Item>
   );
 
-  const normFile = (e) => {
-    if (Array.isArray(e)) {
-      return e;
-    }
-    return e && e.fileList ? e.fileList : [];
-  };
+  // const normFile = (e) => {
+  //   if (Array.isArray(e)) {
+  //     return e;
+  //   }
+  //   return e && e.fileList ? e.fileList : [];
+  // };
 
-  const beforeUpload = (file) => {
-    const isJpg = file.type === 'image/jpeg';
-    if (!isJpg) {
-      message.error('You can only upload JPG files!');
-    }
-    return false; // Prevent automatic upload
-  };
+  // const beforeUpload = (file) => {
+  //   const isJpg = file.type === 'image/jpeg';
+  //   if (!isJpg) {
+  //     message.error('You can only upload JPG files!');
+  //   }
+  //   return false; // Prevent automatic upload
+  // };
 
   const addTeacher = async (values) => {
     try {
@@ -221,20 +221,20 @@ const Teacher = () => {
           text
         ),
     },
-    {
-      title: 'City',
-      dataIndex: 'city',
-      key: 'city',
-      render: (text, record) =>
-        isEditing(record) ? (
-          <Input
-            value={editRecord.city}
-            onChange={(e) => setEditRecord({ ...editRecord, city: e.target.value })}
-          />
-        ) : (
-          text
-        ),
-    },
+    // {
+    //   title: 'City',
+    //   dataIndex: 'city',
+    //   key: 'city',
+    //   render: (text, record) =>
+    //     isEditing(record) ? (
+    //       <Input
+    //         value={editRecord.city}
+    //         onChange={(e) => setEditRecord({ ...editRecord, city: e.target.value })}
+    //       />
+    //     ) : (
+    //       text
+    //     ),
+    // },
     {
       title: 'Subject',
       dataIndex: 'subject',
@@ -374,7 +374,7 @@ const Teacher = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          {/* <Row gutter={16}>
             <Col span={12}>
               <Form.Item 
                 name="password" 
@@ -406,10 +406,10 @@ const Teacher = () => {
                 <Input.Password placeholder="Confirm Password" />
               </Form.Item>
             </Col>
-          </Row>
+          </Row> */}
 
           <Row gutter={16}>
-            <Col span={12}>
+            {/* <Col span={12}>
               <Form.Item 
                 name="city" 
                 label="City" 
@@ -417,7 +417,7 @@ const Teacher = () => {
               >
                 <Input placeholder="Enter City" />
               </Form.Item>
-            </Col>
+            </Col> */}
             <Col span={12}>
               <Form.Item 
                 name="subject" 
@@ -429,7 +429,7 @@ const Teacher = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          {/* <Row gutter={16}>
             <Col span={12}>
               <Form.Item 
                 name="address" 
@@ -465,7 +465,7 @@ const Teacher = () => {
                 </Upload.Dragger>
               </Form.Item>
             </Col>
-          </Row>
+          </Row> */}
 
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading}>
