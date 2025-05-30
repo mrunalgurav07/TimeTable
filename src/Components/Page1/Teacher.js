@@ -54,21 +54,6 @@ const Teacher = () => {
     </Form.Item>
   );
 
-  // const normFile = (e) => {
-  //   if (Array.isArray(e)) {
-  //     return e;
-  //   }
-  //   return e && e.fileList ? e.fileList : [];
-  // };
-
-  // const beforeUpload = (file) => {
-  //   const isJpg = file.type === 'image/jpeg';
-  //   if (!isJpg) {
-  //     message.error('You can only upload JPG files!');
-  //   }
-  //   return false; // Prevent automatic upload
-  // };
-
   const addTeacher = async (values) => {
     try {
       setLoading(true);
@@ -221,20 +206,6 @@ const Teacher = () => {
           text
         ),
     },
-    // {
-    //   title: 'City',
-    //   dataIndex: 'city',
-    //   key: 'city',
-    //   render: (text, record) =>
-    //     isEditing(record) ? (
-    //       <Input
-    //         value={editRecord.city}
-    //         onChange={(e) => setEditRecord({ ...editRecord, city: e.target.value })}
-    //       />
-    //     ) : (
-    //       text
-    //     ),
-    // },
     {
       title: 'Subject',
       dataIndex: 'subject',
@@ -374,50 +345,8 @@ const Teacher = () => {
             </Col>
           </Row>
 
-          {/* <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item 
-                name="password" 
-                label="Password" 
-                rules={[{ required: true, message: 'Please enter password' }]} 
-                hasFeedback
-              >
-                <Input.Password placeholder="Enter Password" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="confirm"
-                label="Confirm Password"
-                dependencies={['password']}
-                hasFeedback
-                rules={[
-                  { required: true, message: 'Please confirm password' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue('password') === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(new Error('Passwords do not match!'));
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password placeholder="Confirm Password" />
-              </Form.Item>
-            </Col>
-          </Row> */}
-
           <Row gutter={16}>
-            {/* <Col span={12}>
-              <Form.Item 
-                name="city" 
-                label="City" 
-                rules={[{ required: true, message: 'Please enter city' }]}
-              >
-                <Input placeholder="Enter City" />
-              </Form.Item>
-            </Col> */}
+
             <Col span={12}>
               <Form.Item 
                 name="subject" 
@@ -428,44 +357,6 @@ const Teacher = () => {
               </Form.Item>
             </Col>
           </Row>
-
-          {/* <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item 
-                name="address" 
-                label="Address" 
-                rules={[{ required: true, message: 'Please enter address' }]}
-              >
-                <Input.TextArea 
-                  showCount 
-                  maxLength={100} 
-                  placeholder="Enter Address" 
-                  rows={4}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="image"
-                label="Image"
-                valuePropName="fileList"
-                getValueFromEvent={normFile}
-                rules={[{ required: true, message: 'Please upload an image!' }]}
-              >
-                <Upload.Dragger
-                  name="file"
-                  beforeUpload={beforeUpload}
-                  accept=".jpg"
-                  maxCount={1}
-                >
-                  <p className="ant-upload-drag-icon">
-                    <InboxOutlined />
-                  </p>
-                  <p className="ant-upload-text">Click or drag a single JPG file to this area to upload</p>
-                </Upload.Dragger>
-              </Form.Item>
-            </Col>
-          </Row> */}
 
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading}>

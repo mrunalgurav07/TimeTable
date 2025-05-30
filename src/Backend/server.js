@@ -1,266 +1,265 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcryptjs"); // Make sure bcryptjs is installed: npm install bcryptjs
 const dotenv = require("dotenv");
 
-// Load environment variables
+// Load environment variables from .env file
 dotenv.config();
 
 const app = express();
 const port = 5000;
 
-app.use(cors());
-app.use(express.json()); // Enables parsing JSON bodies
+// Middleware
+app.use(cors()); // Enable CORS for all origins
+app.use(express.json()); // Parse JSON bodies from requests
 
-// ---------- SCHEMAS ----------
+// --- DATABASE CONNECTION ---
+mongoose
+  .connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/timetable", {
+    // useNewUrlParser and useUnifiedTopology are no longer necessary in Mongoose 6+
+    // but explicitly including them doesn't hurt for older versions.
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("✅ Connected to MongoDB");
+    app.listen(port, () =>
+      console.log(`🚀 Server running on http://localhost:${port}`)
+    );
+  })
+  .catch((err) => {
+    console.error("❌ Failed to connect to MongoDB:", err);
+    // Exit process if DB connection fails
+    process.exit(1); 
+  });
 
-// Lecture schema
-// const lectureSchema = mongoose.Schema(
-//   {
-//     day: { type: String, required: true },
-//     name: { type: String, required: true },
-//     lectureNumber: { type: Number, required: true },
-//     duration: { type: String, required: true },
-//     fromTime: { type: String, required: true },
-//     toTime: { type: String, required: true },
-//   },
-//   { timestamps: true }
-// );
-// const LectureModel = mongoose.model("lectures", lectureSchema);
 
-// Subject schema
 const subjectSchema = mongoose.Schema(
   {
     name: { type: String, required: true },
-    code: { type: String, required: true },
+    code: { type: String, required: true, unique: true }, // Added unique constraint for code
   },
   { timestamps: true }
 );
 const SubjectModel = mongoose.model("subject", subjectSchema);
 
-// Class schema
+
 const classSchema = mongoose.Schema(
-    {
-      name: { type: String, required: true },
-    },
-    { timestamps: true }
+  {
+    name: { type: String, required: true, unique: true }, // Added unique constraint for name
+  },
+  { timestamps: true }
 );
 const ClassModel = mongoose.model("class", classSchema);
 
-// ---------- ROUTES ----------
 
-// ---------------------- LECTURE ROUTES ----------------------
+const teacherSchema = mongoose.Schema(
+  {
+    fullName: { type: String, required: true },
+    gender: { type: String, required: true, enum: ['male', 'female', 'other'] },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    mobile: { type: String, required: true }, // Added as per your request
+    subject: { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
-/**
- * Lecture schema definition
- * Defines the structure for lecture documents in MongoDB
- */
-// const lectureSchema = mongoose.Schema(
-//   {
-//     day: { type: String, required: true },
-//     name: { type: String, required: true },
-//     lectureNumber: { type: Number, required: true },
-//     duration: { type: String, required: true }, // format "HH:mm"
-//     fromTime: { type: String, required: true },
-//     toTime: { type: String, required: true },
-//   },
-//   { timestamps: true }
-// );
-// const LectureModel = mongoose.model("lectures", lectureSchema);
+const TeacherModel = mongoose.model("teacher", teacherSchema);
 
-// ---------------------- LECTURE ROUTES ----------------------
+const timetableEntrySchema = mongoose.Schema(
+  {
+    day: { type: String, required: true },
+    class: { type: String, required: true },
+    time: { type: String, required: true },
+    subject: { type: String, required: true },
+    room: { type: String, required: true },
+    teacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'teacher',
+      required: false // Changed to false as it might not always be assigned immediately
+    }
+  },
+  { timestamps: true }
+);
 
-/**
- * Lecture schema definition
- * Defines the structure for lecture documents in MongoDB
- */
+const TimetableEntryModel = mongoose.model("timetableEntry", timetableEntrySchema);
+
+
+
+
+
+// server.js (Relevant sections only)
+
+// ... (existing imports, app setup, and database connection)
+
+// --- Mongoose Schemas ---
+// (subjectSchema, classSchema, teacherSchema, timetableEntrySchema remain as they are)
+
 const lectureSchema = mongoose.Schema(
   {
     day: { type: String, required: true },
-    name: { type: String, required: true },
-    lectureNumber: { type: Number, required: true },
-    fromTime: { type: String, required: true },
+    subject: { type: String, required: true }, // Changed from 'name' to 'subject'
+    lecture: { type: Number, required: true },   // Changed from 'lectureNumber' to 'lecture'
+    time: { type: String, required: true },    // Changed from 'fromTime' to 'time'
   },
   { timestamps: true }
 );
 const LectureModel = mongoose.model("lectures", lectureSchema);
 
-/**
- * Create new lecture
- * POST /lectures/create
- * Creates a new lecture entry in the database
- */
+
+// --- API Routes ---
+// Create new lecture
 app.post("/lectures/create", async (req, res) => {
   try {
-    // Extract lecture data from request body
-    const { day, name, lectureNumber, fromTime} = req.body;
-    
-    // Validate required fields
-    if (!day || !name || !lectureNumber || !fromTime ) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "All fields are required (day, name, lectureNumber, duration, fromTime, toTime)" 
+    const { day, subject, lecture, time } = req.body; // Updated field names
+
+    // Validate required fields explicitly (though Mongoose will also validate)
+    if (!day || !subject || !lecture || !time) { // Updated validation
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required (day, subject, lecture, time)" // Updated message
       });
     }
-    
-    // Create new lecture instance
+
     const data = new LectureModel({
       day,
-      name,
-      lectureNumber,
-      fromTime
+      subject, // Updated field name
+      lecture, // Updated field name
+      time,    // Updated field name
     });
-    
-    // Save to database
+
     await data.save();
-    
-    // Return success response
-    res.json({ 
-      success: true, 
-      message: "Lecture created successfully", 
-      data 
+
+    res.status(201).json({
+      success: true,
+      message: "Lecture created successfully",
+      data
     });
   } catch (err) {
     console.error("Error creating lecture:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to create lecture" 
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Failed to create lecture"
     });
   }
 });
 
-/**
- * Get all lectures
- * GET /lectures
- * Retrieves all lectures from the database
- */
+// Get all lectures
 app.get("/lectures", async (req, res) => {
   try {
-    // Fetch all lectures with selected fields
-    const lectures = await LectureModel.find().select('day name lectureNumber fromTime ');
-    
-    // Return success response with lecture data
-    res.json({ 
-      success: true, 
-      data: lectures 
+    const lectures = await LectureModel.find().select('day subject lecture time'); // Updated selection
+
+    res.json({
+      success: true,
+      data: lectures
     });
   } catch (err) {
     console.error("Error fetching lectures:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch lectures" 
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch lectures"
     });
   }
 });
 
-/**
- * Update lecture
- * PUT /lectures/:id
- * Updates an existing lecture by ID
- */
+// Update lecture
 app.put("/lectures/:id", async (req, res) => {
   try {
-    // Extract fields from request body
-    const { day, name, lectureNumber, fromTime } = req.body;
-    
-    // Create update object with only provided fields
+    const { day, subject, lecture, time } = req.body; // Updated field names
+
     const updateData = {};
-    if (day) updateData.day = day;
-    if (name) updateData.name = name;
-    if (lectureNumber) updateData.lectureNumber = lectureNumber;
-    if (fromTime) updateData.fromTime = fromTime;
-    
-    // Update lecture in database
+    if (day !== undefined) updateData.day = day;
+    if (subject !== undefined) updateData.subject = subject; // Updated field name
+    if (lecture !== undefined) updateData.lecture = lecture; // Updated field name
+    if (time !== undefined) updateData.time = time;     // Updated field name
+
     const updatedLecture = await LectureModel.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
-      { new: true } // Return updated document
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
     );
-    
-    // Check if lecture exists
+
     if (!updatedLecture) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Lecture not found" 
+      return res.status(404).json({
+        success: false,
+        message: "Lecture not found"
       });
     }
-    
-    // Return success response with updated lecture data
-    res.json({ 
-      success: true, 
-      message: "Lecture updated successfully", 
-      data: updatedLecture 
+
+    res.json({
+      success: true,
+      message: "Lecture updated successfully",
+      data: updatedLecture
     });
   } catch (err) {
     console.error("Error updating lecture:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to update lecture" 
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Failed to update lecture"
     });
   }
 });
 
-/**
- * Delete lecture
- * DELETE /lectures/:id
- * Deletes a lecture by ID
- */
+// Delete lecture
 app.delete("/lectures/:id", async (req, res) => {
   try {
-    console.log("Received delete request for lecture ID:", req.params.id);
-    
-    // Validate the ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      console.log("Invalid ID format:", req.params.id);
       return res.status(400).json({
         success: false,
         message: "Invalid lecture ID format"
       });
     }
-    
-    // Delete lecture from database
+
     const deleted = await LectureModel.findByIdAndDelete(req.params.id);
-    
-    // Check if lecture exists
+
     if (!deleted) {
-      console.log("Lecture not found with ID:", req.params.id);
-      return res.status(404).json({ 
-        success: false, 
-        message: "Lecture not found" 
+      return res.status(404).json({
+        success: false,
+        message: "Lecture not found"
       });
     }
-    
-    console.log("Successfully deleted lecture:", deleted);
-    
-    // Return success response
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: "Lecture deleted successfully",
-      deletedId: req.params.id,
-      deletedLecture: deleted
+      deletedId: req.params.id
     });
   } catch (err) {
     console.error("Error deleting lecture:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: `Failed to delete lecture: ${err.message}` 
+    res.status(500).json({
+      success: false,
+      message: `Failed to delete lecture: ${err.message}`
     });
   }
 });
 
-// Subject routes
+
+// Create new subject
 app.post("/subjects", async (req, res) => {
   try {
     const data = new SubjectModel(req.body);
     await data.save();
-    res.json({ success: true, message: "Subject created successfully", data });
+    res.status(201).json({ success: true, message: "Subject created successfully", data });
   } catch (err) {
     console.error("Error creating subject:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Subject code already exists." });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to create subject" });
   }
 });
 
+// Get all subjects
 app.get("/subjects", async (req, res) => {
   try {
     const subjects = await SubjectModel.find();
@@ -271,21 +270,32 @@ app.get("/subjects", async (req, res) => {
   }
 });
 
+// Update subject
 app.put("/subjects/:id", async (req, res) => {
   try {
-    const updated = await SubjectModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await SubjectModel.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!updated) {
       return res.status(404).json({ success: false, message: "Subject not found" });
     }
     res.json({ success: true, message: "Subject updated successfully", data: updated });
   } catch (err) {
     console.error("Error updating subject:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Subject code already exists." });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to update subject" });
   }
 });
 
+// Delete subject
 app.delete("/subjects/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid subject ID format" });
+    }
     const deleted = await SubjectModel.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Subject not found" });
@@ -297,16 +307,23 @@ app.delete("/subjects/:id", async (req, res) => {
   }
 });
 
-// ---------- CLASS ROUTES ----------
+
+
 
 // Create new class
 app.post("/classes", async (req, res) => {
   try {
     const data = new ClassModel(req.body);
     await data.save();
-    res.json({ success: true, message: "Class created successfully", data });
+    res.status(201).json({ success: true, message: "Class created successfully", data });
   } catch (err) {
     console.error("Error creating class:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Class name already exists." });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to create class" });
   }
 });
@@ -325,13 +342,19 @@ app.get("/classes", async (req, res) => {
 // Update class
 app.put("/classes/:id", async (req, res) => {
   try {
-    const updated = await ClassModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await ClassModel.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!updated) {
       return res.status(404).json({ success: false, message: "Class not found" });
     }
     res.json({ success: true, message: "Class updated successfully", data: updated });
   } catch (err) {
     console.error("Error updating class:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Class name already exists." });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to update class" });
   }
 });
@@ -339,6 +362,9 @@ app.put("/classes/:id", async (req, res) => {
 // Delete class
 app.delete("/classes/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid class ID format" });
+    }
     const deleted = await ClassModel.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Class not found" });
@@ -350,32 +376,23 @@ app.delete("/classes/:id", async (req, res) => {
   }
 });
 
-// Teacher schema
-const teacherSchema = mongoose.Schema(
-  {
-    fullName: { type: String, required: true },
-    gender: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    mobile: { type: String, required: true },
-    password: { type: String, required: true },
-    city: { type: String, required: true },
-    subject: { type: String, required: true },
-    address: { type: String, required: true },
-    image: { type: String }, // you might want to handle image URLs or paths
-  },
-  { timestamps: true }
-);
 
-const TeacherModel = mongoose.model("teacher", teacherSchema);
-
+// Teacher Routes
 // Create new teacher
 app.post("/teachers", async (req, res) => {
   try {
     const data = new TeacherModel(req.body);
     await data.save();
-    res.json({ success: true, message: "Teacher created successfully", data });
+    // No password to exclude now, just send the saved data
+    res.status(201).json({ success: true, message: "Teacher created successfully", data });
   } catch (err) {
     console.error("Error creating teacher:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Email already exists." });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to create teacher" });
   }
 });
@@ -383,7 +400,8 @@ app.post("/teachers", async (req, res) => {
 // Get all teachers
 app.get("/teachers", async (req, res) => {
   try {
-    const teachers = await TeacherModel.find();
+    // No password to exclude now, just fetch all data
+    const teachers = await TeacherModel.find(); // .select('-__v') is optional, but -password is not needed
     res.json({ success: true, data: teachers });
   } catch (err) {
     console.error("Error fetching teachers:", err);
@@ -394,13 +412,23 @@ app.get("/teachers", async (req, res) => {
 // Update teacher
 app.put("/teachers/:id", async (req, res) => {
   try {
-    const updated = await TeacherModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // No password to handle for hashing
+    const updateData = req.body; 
+
+    const updated = await TeacherModel.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     if (!updated) {
       return res.status(404).json({ success: false, message: "Teacher not found" });
     }
+    // No password to exclude from response
     res.json({ success: true, message: "Teacher updated successfully", data: updated });
   } catch (err) {
     console.error("Error updating teacher:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Email already exists." });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to update teacher" });
   }
 });
@@ -408,6 +436,9 @@ app.put("/teachers/:id", async (req, res) => {
 // Delete teacher
 app.delete("/teachers/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid teacher ID format" });
+    }
     const deleted = await TeacherModel.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Teacher not found" });
@@ -419,71 +450,31 @@ app.delete("/teachers/:id", async (req, res) => {
   }
 });
 
-// ------------ Admin--------------------
 
-
-
-// ---------- DATABASE CONNECTION ----------
-
-mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/timetable", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log("✅ Connected to MongoDB");
-    app.listen(port, () =>
-      console.log(`🚀 Server running on http://localhost:${port}`)
-    );
-  })
-  .catch((err) => {
-    console.error("❌ Failed to connect to MongoDB:", err);
-  });
-
-
-// ----------------------------------------------------------
-
-// First, let's add a model for timetable entries in server.js
-
-// Timetable Entry schema
-const timetableEntrySchema = mongoose.Schema(
-  {
-    day: { type: String, required: true },
-    class: { type: String, required: true },
-    time: { type: String, required: true },
-    subject: { type: String, required: true },
-    room: { type: String, required: true },
-    teacher: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: 'teacher',
-      required: false
-    }
-  },
-  { timestamps: true }
-);
-
-const TimetableEntryModel = mongoose.model("timetableEntry", timetableEntrySchema);
-
-// Create routes for timetable entries
+// Create new timetable entry
 app.post("/timetable-entries", async (req, res) => {
   try {
     const data = new TimetableEntryModel(req.body);
     await data.save();
-    res.json({ success: true, message: "Timetable entry created successfully", data });
+    res.status(201).json({ success: true, message: "Timetable entry created successfully", data });
   } catch (err) {
     console.error("Error creating timetable entry:", err);
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to create timetable entry" });
   }
 });
 
+// Get all timetable entries
 app.get("/timetable-entries", async (req, res) => {
   try {
-    // Support filtering by day and class
     const filter = {};
     if (req.query.day) filter.day = req.query.day;
     if (req.query.class) filter.class = req.query.class;
-    
-    const entries = await TimetableEntryModel.find(filter);
+
+    // Populate the 'teacher' field to get teacher details
+    const entries = await TimetableEntryModel.find(filter).populate('teacher', 'fullName email'); // Select specific teacher fields
     res.json({ success: true, data: entries });
   } catch (err) {
     console.error("Error fetching timetable entries:", err);
@@ -491,21 +482,29 @@ app.get("/timetable-entries", async (req, res) => {
   }
 });
 
+// Update timetable entry
 app.put("/timetable-entries/:id", async (req, res) => {
   try {
-    const updated = await TimetableEntryModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await TimetableEntryModel.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!updated) {
       return res.status(404).json({ success: false, message: "Timetable entry not found" });
     }
     res.json({ success: true, message: "Timetable entry updated successfully", data: updated });
   } catch (err) {
     console.error("Error updating timetable entry:", err);
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     res.status(500).json({ success: false, message: "Failed to update timetable entry" });
   }
 });
 
+// Delete timetable entry
 app.delete("/timetable-entries/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid timetable entry ID format" });
+    }
     const deleted = await TimetableEntryModel.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Timetable entry not found" });
